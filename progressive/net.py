@@ -6,7 +6,7 @@ import numpy as np
 import chainer
 import chainer.functions as F
 import chainer.links as L
-
+from source.miscs.random_samples import sample_continuous
 sys.path.append(os.path.dirname(__file__))
 sys.path.append(os.path.abspath(os.path.dirname(__file__)) + os.path.sep + os.path.pardir)
 
@@ -72,6 +72,7 @@ class Generator(chainer.Chain):
         super(Generator, self).__init__()
         self.n_hidden = n_hidden
         self.max_stage = max_stage
+        self.distribution="normal"
         with self.init_scope():
             #self.c0 = EqualizedDeconv2d(n_hidden, ch, 4, 1, 0)
             self.c0 = EqualizedConv2d(n_hidden, ch, 4, 1, 3)
@@ -92,13 +93,15 @@ class Generator(chainer.Chain):
         z /= xp.sqrt(xp.sum(z*z, axis=1, keepdims=True)/self.n_hidden + 1e-8)
         return z
 
-    def __call__(self, z, stage):
+    def __call__(self, batchsize=64, z=None, stage=6):
         # stage0: c0->c1->out0
         # stage1: c0->c1-> (1-a)*(up->out0) + (a)*(b1->out1)
         # stage2: c0->c1->b1->out1
         # stage3: c0->c1->b1-> (1-a)*(up->out1) + (a)*(b2->out2)
         # stage4: c0->c1->b2->out2
         # ...
+        if z is None:
+            z = sample_continuous(self.n_hidden, batchsize, distribution=self.distribution, xp=self.xp)
 
         stage = min(stage, self.max_stage)
         alpha = stage - math.floor(stage)
